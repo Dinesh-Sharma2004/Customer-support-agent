@@ -1,0 +1,14 @@
+.venv/
+rag_env/
+__pycache__/
+*.pyc
+.env
+data/
+artifacts/
+twcs/
+*.csv
+!amazonhelp_golden_set_final.csv
+.pytest_cache/
+.jupyter_runtime/
+.history/
+*.log
