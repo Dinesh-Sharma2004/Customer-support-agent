@@ -51,6 +51,11 @@ You can launch the dashboard and run evaluations instantly. Pre-built models and
 ```bash
 git clone https://github.com/Dinesh-Sharma2004/Customer-Support-Agent.git
 cd Customer-Support-Agent
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env and add your required API keys (e.g. GROQ_API_KEY)
+
 python -m venv rag_env
 
 # Windows
@@ -61,18 +66,30 @@ source rag_env/bin/activate
 pip install -r requirements.txt
 ```
 
-**2. Launch the Interactive Dashboard:**
+**2. Run Data Processing & Training (Optional but recommended to rebuild from scratch):**
+```bash
+# 1. Prepare data splits (retrieval corpus, train/cal/dev splits)
+python scripts/prepare_data_splits.py
+
+# 2. Train the intent classifier
+python scripts/train_classifier.py
+
+# 3. Build BM25 and Dense FAISS indices (can take a while)
+python scripts/build_indices.py
+```
+
+**3. Launch the Interactive Dashboard:**
 ```bash
 python -m streamlit run scripts/streamlit_app.py
 ```
 *The app will open at `http://localhost:8501` showing the agent's thought process.*
 
-**3. Run Pipeline Tests:**
+**4. Run Pipeline Tests:**
 ```bash
 pytest tests/test_e2e.py -v
 ```
 
-**4. Run Offline Evaluation:**
+**5. Run Offline Evaluation:**
 ```bash
 python scripts/run_evaluation.py
 ```

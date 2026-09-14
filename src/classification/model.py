@@ -42,12 +42,11 @@ def build_base_classifier() -> Pipeline:
     
     return clf_pipeline
 
-from sklearn.frozen import FrozenEstimator
-
 def build_calibrated_classifier(base_pipeline: Pipeline) -> CalibratedClassifierCV:
     """Wraps a fitted base pipeline in a CalibratedClassifierCV using sigmoid."""
     return CalibratedClassifierCV(
-        estimator=FrozenEstimator(base_pipeline),
+        estimator=base_pipeline,
+        cv='prefit',
         method='sigmoid'
     )
 

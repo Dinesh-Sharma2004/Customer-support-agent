@@ -81,16 +81,16 @@ def create_splits():
     corpus_raw = corpus_raw.drop(columns=['clean_lower'])
     print(f"Interactions after removing golden set overlap: {len(corpus_raw)}")
     
-    # Sample down for manageable training sizes (e.g., 20,000 for retrieval, 6,000 for train/cal/dev)
-    corpus_raw = corpus_raw.sample(n=min(26000, len(corpus_raw)), random_state=settings.RANDOM_SEED)
+    # We need 6,000 for training classifier, and the REST (or all of it) for retrieval.
+    # Let's shuffle the entire corpus first.
+    corpus_raw = corpus_raw.sample(frac=1, random_state=settings.RANDOM_SEED)
     
-    # Retrieval Corpus (first 20,000)
-    retrieval_corpus = corpus_raw.iloc[:20000].copy()
-    # Apply weak intents for retrieval corpus if needed, but it's mostly for text
+    # Retrieval Corpus (entire corpus minus golden set)
+    retrieval_corpus = corpus_raw.copy()
     retrieval_corpus['intent'] = retrieval_corpus['customer_text'].apply(assign_pseudo_intent)
     
-    # The rest (up to 6,000) for training classifier
-    classifier_data = corpus_raw.iloc[20000:].copy()
+    # The first 6,000 for training classifier
+    classifier_data = corpus_raw.iloc[:6000].copy()
     classifier_data['intent'] = classifier_data['customer_text'].apply(assign_pseudo_intent)
     
     # Split classifier data: Train (60%), Cal (20%), Dev (20%)

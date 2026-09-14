@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     
     # LLM Settings
     LLM_PROVIDER: str = "groq"
-    LLM_MODEL_NAME: str = "qwen-2.5-32b"
+    LLM_MODEL_NAME: str = "qwen/qwen3.8-27b"
     
     # Classifier settings
     RANDOM_SEED: int = 42

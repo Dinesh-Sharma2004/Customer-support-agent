@@ -11,4 +11,7 @@ twcs/
 .pytest_cache/
 .jupyter_runtime/
 .history/
+.vscode/
 *.log
+.DS_Store
+.env

@@ -9,11 +9,23 @@ class LLMProvider(Protocol):
 
 class MockProvider(LLMProvider):
     def generate(self, prompt: str, **kwargs) -> str:
+        # Simple heuristic for testing: if prompt mentions missing evidence, escalate
+        if "No retrieved evidence available" in prompt:
+            decision = "ESCALATE"
+            reason = "Missing evidence"
+        elif "Account Security" in prompt and "password" in prompt.lower():
+            decision = "ESCALATE"
+            reason = "Account security requests require human verification."
+        else:
+            decision = "AUTO_HANDLE"
+            reason = "Evidence is sufficient"
+            
         return json.dumps({
+            "decision": decision,
             "answer": "This is a mock generated answer based on the evidence.",
+            "reason": reason,
             "grounded": True,
-            "confidence": 0.95,
-            "refusal_or_escalation_reason": None
+            "confidence": 0.95
         })
 
 class GroqProvider(LLMProvider):

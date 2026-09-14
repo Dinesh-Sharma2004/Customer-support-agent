@@ -3,7 +3,6 @@ import os
 
 from src.config.settings import settings
 from src.safety.guardrails import run_input_guardrails
-from src.safety.policy_engine import apply_routing_policy
 from src.memory.store import SessionMemory
 from src.memory.session import SessionContextManager
 from src.classification.model import load_model
@@ -36,8 +35,10 @@ class RAGPipeline:
         
     def process(self, session_id: str, query: str, is_new_session: bool = False) -> Dict[str, Any]:
         """
-        Executes the full RAG pipeline: Input -> Safety -> Context -> Classification -> Policy ->
-        Retrieval -> Verification -> Generation -> Output
+        Executes the full RAG pipeline: 
+        Input Guardrails -> Session Memory -> TF-IDF Classification -> 
+        Hybrid Retrieval -> Evidence Verification -> LLM Decision + Response -> 
+        Post-Generation Safety -> Final Decision
         """
         response_dict = {
             "intent": None,
@@ -60,8 +61,7 @@ class RAGPipeline:
             memory.add_message(session_id, "user", query)
             history = memory.get_history(session_id)
             
-            # 3. Classification
-            # Predict intent
+            # 3. Classification (Routing Signal Only)
             predicted_intent = self.classifier.predict([query])[0]
             probabilities = self.classifier.predict_proba([query])[0]
             classes = self.classifier.classes_
@@ -69,41 +69,35 @@ class RAGPipeline:
             
             response_dict["intent"] = predicted_intent
             response_dict["confidence"] = confidence
-            
-            # 4. Policy Routing
-            decision, reason = apply_routing_policy(predicted_intent, confidence)
-            response_dict["decision"] = decision
-            
-            if decision == "ESCALATE":
-                response_dict["reason"] = reason
-                return response_dict
                 
-            # 5. Hybrid Retrieval
+            # 4. Hybrid Retrieval
             retrieved_docs = self.hybrid.search(query, top_k=5)
             
-            # 6. Evidence Verification
+            # 5. Evidence Verification (Filters out low-quality/contradictory evidence)
             is_verified, reason, verified_docs = verify_evidence(query, retrieved_docs)
-            if not is_verified:
-                response_dict["decision"] = "ESCALATE"
-                response_dict["reason"] = reason
-                return response_dict
                 
-            # 7. Generation
-            gen_result = self.generator.generate(query, verified_docs, history)
+            # 6. LLM Generation and Decision
+            gen_result = self.generator.generate(
+                user_query=query, 
+                evidence=verified_docs, 
+                context=history,
+                predicted_intent=predicted_intent,
+                classifier_confidence=confidence
+            )
             
+            response_dict["decision"] = gen_result.decision
+            response_dict["reason"] = gen_result.reason
             response_dict["answer"] = gen_result.answer
             response_dict["evidence_ids"] = gen_result.evidence_ids
             response_dict["grounded"] = gen_result.grounded
             
-            # 8. Post-Generation Safety
-            if not gen_result.grounded:
+            # 7. Post-Generation Safety
+            if response_dict["decision"] == "AUTO_HANDLE" and not gen_result.grounded:
                 response_dict["decision"] = "ESCALATE"
                 response_dict["reason"] = "Generated response not fully grounded."
-            elif gen_result.refusal_or_escalation_reason:
-                response_dict["decision"] = "ESCALATE"
-                response_dict["reason"] = gen_result.refusal_or_escalation_reason
             
-            if response_dict["decision"] == "AUTO_HANDLE":
+            # 8. Memory Update
+            if response_dict["decision"] in ["AUTO_HANDLE", "CLARIFY"]:
                 memory.add_message(session_id, "assistant", gen_result.answer)
                 
             return response_dict
