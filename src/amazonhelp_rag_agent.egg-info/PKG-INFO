@@ -17,7 +17,121 @@ Requires-Dist: numpy>=1.24.0
 Requires-Dist: joblib>=1.3.2
 Requires-Dist: structlog>=23.1.0
 Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: streamlit>=1.27.0
+Requires-Dist: groq>=0.9.0
+Requires-Dist: torchvision>=0.18.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7.4.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
 Requires-Dist: httpx>=0.25.0; extra == "dev"
+
+<h1 align="center">AmazonHelp Customer Support RAG Agent</h1>
+
+<p align="center">
+  <strong>Safe, fail-closed RAG pipeline for classifying and resolving customer support interactions.</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white" alt="Streamlit" />
+  <img src="https://img.shields.io/badge/scikit--learn-F7931E?style=flat-square&logo=scikit-learn&logoColor=white" alt="Scikit-Learn" />
+  <img src="https://img.shields.io/badge/FAISS-000000?style=flat-square&logo=meta&logoColor=white" alt="FAISS" />
+</p>
+
+## Overview
+A production-grade Retrieval-Augmented Generation (RAG) agent that handles noisy customer support inquiries. It classifies intents against a rigid 6-class taxonomy, retrieves verified historical responses, and strictly escalates ambiguous or sensitive requests (e.g., security, financial) to a human agent, guaranteeing safety and reliability.
+
+## Key Features
+- **Fail-Closed Safety Routing:** Deterministic rules override LLM uncertainty to escalate sensitive or low-confidence requests.
+- **Calibrated Classification:** Word/Char TF-IDF with Logistic Regression, calibrated via Sigmoid for honest probabilities.
+- **Hybrid Retrieval:** Merges lexical BM25 with FAISS dense embeddings (`all-MiniLM-L6-v2`) via Reciprocal Rank Fusion.
+- **Evidence Verification:** Automatically drops contradictory or irrelevant evidence before passing context to the generator.
+- **Data Isolation:** Complete methodological separation of the 200-sample golden evaluation set from the 168k training records to eliminate data leakage.
+
+## Architecture
+
+```mermaid
+graph TD
+    A[User Query] --> B{Input Safety Guardrails}
+    B -- Unsafe --> E[ESCALATE]
+    B -- Safe --> C[Intent Classifier]
+    C --> D{Policy Routing Engine}
+    D -- Sensitive / Low Confidence --> E
+    D -- Safe & High Confidence --> F[Hybrid Retrieval BM25 + FAISS]
+    F --> G{Evidence Verifier}
+    G -- Weak Evidence --> E
+    G -- Strong Evidence --> H[LLM Generator]
+    H --> I{Output Safety Gate}
+    I -- Ungrounded --> E
+    I -- Grounded --> J[AUTO_HANDLE Response]
+```
+
+## Tech Stack
+**Backend:** FastAPI | **UI:** Streamlit | **ML:** Scikit-Learn | **Retrieval:** FAISS, sentence-transformers, rank-bm25 | **Testing:** pytest
+
+## ⚡ Reproduce the Output (~5 min)
+
+You can launch the dashboard and run evaluations instantly. Pre-built models and FAISS indices are already stored in `artifacts/`, so no retraining is required.
+
+**1. Clone & Setup:**
+```bash
+git clone https://github.com/Dinesh-Sharma2004/Customer-Support-Agent.git
+cd Customer-Support-Agent
+python -m venv rag_env
+
+# Windows
+rag_env\Scripts\activate
+# Linux/Mac
+source rag_env/bin/activate
+
+pip install -r requirements.txt
+```
+
+**2. Launch the Interactive Dashboard:**
+```bash
+python -m streamlit run scripts/streamlit_app.py
+```
+*The app will open at `http://localhost:8501` showing the agent's thought process.*
+
+**3. Run Pipeline Tests:**
+```bash
+pytest tests/test_e2e.py -v
+```
+
+**4. Run Offline Evaluation:**
+```bash
+python scripts/run_evaluation.py
+```
+*Outputs will be saved to `artifacts/golden_evaluation_report.json`.*
+
+## Results
+Evaluated strictly against a locked, naturally imbalanced 200-sample golden set (`amazonhelp_golden_set_final.csv`), successfully isolating actual real-world performance from training leakage.
+
+- **Classification Accuracy:** `0.7100`
+- **Classification Macro-F1:** `0.6779`
+- **Escalation Rate:** `71.5%` *(Successful fail-closed safety net)*
+- **Auto-Handle Rate:** `28.5%` *(Confident & safe resolutions)*
+
+## Project Structure
+```text
+├── artifacts/             # Pre-trained models, FAISS index, metrics
+├── docs/                  # Deliverable methodology documents
+├── scripts/               # Streamlit app, training, and evaluation scripts
+├── src/
+│   ├── api/               # FastAPI endpoints
+│   ├── classification/    # Intent modeling & calibration
+│   ├── retrieval/         # BM25, FAISS, and RRF logic
+│   ├── safety/            # Guardrails and routing policies
+│   └── pipeline.py        # Core orchestration logic
+├── tests/                 # E2E adversarial tests
+└── amazonhelp_golden_set_final.csv # Source-of-truth evaluation set
+```
+
+<details>
+<summary><strong>Limitations & Next Steps</strong></summary>
+
+- **Limitations:** The `0.71` classification accuracy stems from inherently noisy pseudo-labels in the training set. Dense retrieval currently struggles with highly specific domain acronyms (e.g., "VOD") out-of-the-box.
+- **Next Steps:** Transition from heuristic pseudo-labels to an Active Learning setup to train the Logistic Regression baseline, and fine-tune the FAISS dense embeddings on historical Q&A pairs using `MultipleNegativesRankingLoss`.
+
+</details>

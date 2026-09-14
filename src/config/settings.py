@@ -14,11 +14,16 @@ class Settings(BaseSettings):
     DB_PATH: str = os.path.join(ARTIFACTS_DIR, "memory.db")
     
     # Model Providers (Adapter Configuration)
-    LLM_PROVIDER: str = Field(default="mock", description="Provider for LLM (mock, openai, gemini)")
     
     # Optional Provider Keys (Loaded from .env)
     OPENAI_API_KEY: str | None = None
     GEMINI_API_KEY: str | None = None
+    # Groq API
+    GROQ_API_KEY: str | None = None
+    
+    # LLM Settings
+    LLM_PROVIDER: str = "groq"
+    LLM_MODEL_NAME: str = "qwen-2.5-32b"
     
     # Classifier settings
     RANDOM_SEED: int = 42

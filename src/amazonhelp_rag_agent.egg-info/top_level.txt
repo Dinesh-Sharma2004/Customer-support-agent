@@ -7,5 +7,6 @@ evaluation
 evidence
 generation
 memory
+pipeline
 retrieval
 safety
